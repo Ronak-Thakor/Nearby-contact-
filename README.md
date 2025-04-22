@@ -1,0 +1,79 @@
+import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+void main() => runApp(MyApp());
+
+class Contact {
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  Contact(this.name, this.latitude, this.longitude);
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => MaterialApp(home: LocationChecker());
+}
+
+class LocationChecker extends StatefulWidget {
+  @override
+  _LocationCheckerState createState() => _LocationCheckerState();
+}
+
+class _LocationCheckerState extends State<LocationChecker> {
+  final List<Contact> contacts = [
+    Contact('Alice', 37.4219983, -122.084),
+    Contact('Bob', 37.4220, -122.0839)
+  ];
+
+  FlutterLocalNotificationsPlugin notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  @override
+  void initState() {
+    super.initState();
+    _initNotifications();
+    _checkLocationAndNotify();
+  }
+
+  void _initNotifications() {
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const settings = InitializationSettings(android: android);
+    notificationsPlugin.initialize(settings);
+  }
+
+  Future<void> _checkLocationAndNotify() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied) return;
+
+    Position position = await Geolocator.getCurrentPosition();
+    for (var contact in contacts) {
+      double distance = Geolocator.distanceBetween(
+        position.latitude, position.longitude,
+        contact.latitude, contact.longitude,
+      );
+      if (distance < 500) {
+        _showNotification("${contact.name} is nearby!");
+      }
+    }
+  }
+
+  void _showNotification(String message) {
+    const androidDetails = AndroidNotificationDetails(
+      'nearby_channel', 'Nearby Notifications',
+      importance: Importance.high,
+    );
+    const platformDetails = NotificationDetails(android: androidDetails);
+    notificationsPlugin.show(0, 'Nearby Contact', message, platformDetails);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text("Nearby Contacts")),
+        body: Center(child: Text("Checking...")),
+      );
+}
